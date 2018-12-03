@@ -13,7 +13,7 @@
 (define (count-letters s)
   (foldl tally-char (hasheq) (string->list s)))
 
-;; tally-char
+;; tally-char : char? hasheq?
 ;; If `c` is not in the dictionary `counts`, add it; otherwise bump its counter.
 (define (tally-char c counts)
   (if (hash-has-key? counts c)
@@ -31,6 +31,35 @@
 ;; Answer to part 1
 (println (* (count-Ns 2 letter-counts) (count-Ns 3 letter-counts)))
 
-;;; Part 
+;;; Part 2
 ;;; --------------------------------------------------------------------------------
 
+;; edit-distance : string? string? -> number?
+;; Given two strings of the same length, count the number of locations at which
+;; they differ
+(define (edit-distance s1 s2)
+  (for/sum ([c1 (in-string s1)]
+            [c2 (in-string s2)])
+    (if (eq? c1 c2) 0 1)))
+
+;; Find the two strings with edit distance 1
+
+(define (find-pair ss)
+  (cond
+    [(null? ss) #f]
+    [(find-match (car ss) (cdr ss)) #t]
+    [else (find-pair (cdr ss))]))
+
+(define (find-match s ss)
+  (cond
+    [(null? ss) #f]
+    [(eq? (edit-distance  s (car ss)) 1) (success s (car ss))]
+    [else (find-match s (cdr ss))]))
+
+(define (success s1 s2)
+  (println s1)
+  (println s2)
+  #t)
+
+;; Answer to part 2
+(println (find-pair ids))
