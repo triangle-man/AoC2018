@@ -5,12 +5,15 @@
 ;; interval is closed -- both endpoints are included
 (struct Interval (l r) #:transparent)
 
+(define (interval-length inl)
+  (+ (- (Interval-r inl) (Interval-l inl)) 1))
+
 ;; A Claim is an id; two Intervals representing the top and side of the
 ;; rectangle; and an integer count
 (struct Claim (id xx yy N) #:transparent)
 
-(define (claim-bump-id clm)
-  (struct-copy Claim clm [N (+ 1 (Claim-N clm))]))
+(define (claim-area clm)
+  (* (interval-length (Claim-xx clm)) (interval-length (Claim-yy clm))))
 
 ;; Convert input format into Claim struct
 
@@ -26,6 +29,7 @@
            (Interval top-left-y (- (+ top-left-y height) 1))
            1)))
 
+
 ;; Combine claims
 
 ;; add-stack : (List-of Claim?) (List-of Claim?) -> List-of Claim?
@@ -38,9 +42,9 @@
 (define (add-claim clm done-stack)
   (if (null? done-stack)
       (list clm)
-      (let-values ([(lsplit rsplit inter)
+      (let-values ([(splitA splitB intersect)
                     (disjointify-claims clm (car done-stack))])
-        (append rsplit (add-stack lsplit (cdr done-stack))))))
+        (append splitB intersect (add-stack splitA (cdr done-stack))))))
 
 ;; disjointify-intervals : Interval? Interval? -> 5 x Interval?
 ;; Given two overlapping intervals, A and B return five Intervals: two
@@ -85,22 +89,49 @@
                           (Interval Al Ar))])]))
 
 ;; disjointify-claims : Claim? Claim? ->
-;;  or/c (values [List-of Claim?] [List-of Claim?] [List-of Claim?]) #f
+;;  values [List-of Claim?] [List-of Claim?] [List-of Claim?]
+;; 
 ;; Produce a disjoint cover of the union of two Claims. There are three parts to
-;; the result: rectangles that used to be in A, rectangles that used to be in B,
-;; and the overlap
+;; the result: rectangles that used to be in clm1, rectangles that used to be in
+;; clm2, and the overlap
 (define (disjointify-claims clm1 clm2)
   (match-define (Claim id1 xx1 yy1 N1) clm1)
   (match-define (Claim id2 xx2 yy2 N2) clm2)
-  (if (or (> (Interval-l xx1) (Interval-r xx2))
+  (if (or (> (Interval-l xx1) (Interval-r xx2)) ; Quick check for non-overlap
           (< (Interval-r xx1) (Interval-l xx2))
           (> (Interval-l yy1) (Interval-r yy2))
           (< (Interval-r yy1) (Interval-l yy2))) 
-      (values (list clm1) (list clm2) #f) ; no overlap
-      (let-values ([(xx1l xx1r xx2l xx2r xxi) (disjointify-intervals xx1 xx2)]
-                   [(yy1l yy1r yy2l yy2r yyi) (disjointify-intervals yy1 yy2)])
-        #f)))
+      (values (list clm1) (list clm2) null) ; no overlap
+      (let-values ([(xx1a xx1b xx2a xx2b xxi) (disjointify-intervals xx1 xx2)]
+                   [(yy1a yy1b yy2a yy2b yyi) (disjointify-intervals yy1 yy2)])
+        (values
+         (filter not-false? (list (make-claim -1 xx1a yy1a N1)
+                                  (make-claim -1 xxi  yy1a N1)
+                                  (make-claim -1 xx1b yy1a N1)
+                                  (make-claim -1 xx1a yyi  N1)
+                                  (make-claim -1 xx1b yyi  N1)
+                                  (make-claim -1 xx1a yy1b N1)
+                                  (make-claim -1 xxi  yy1b N1)
+                                  (make-claim -1 xx1b yy1b N1)))
+         (filter not-false? (list (make-claim -1 xx2a yy2a N2)
+                                  (make-claim -1 xxi  yy2a N2)
+                                  (make-claim -1 xx2b yy2a N2)
+                                  (make-claim -1 xx2a yyi  N2)
+                                  (make-claim -1 xx2b yyi  N2)
+                                  (make-claim -1 xx2a yy2b N2)
+                                  (make-claim -1 xxi  yy2b N2)
+                                  (make-claim -1 xx2b yy2b N2)))
+         (filter not-false? (list (make-claim -1 xxi  yyi  (+ N1 N2))))))))
 
+
+;; make-claim : number? Interval? Interval? number? -> Claim?
+;; Make a claim. However, if either Interval is #f, then return #f
+(define (make-claim id xx yy N)
+  (if (and xx yy)
+      (Claim id xx yy N)
+      #f))
+
+(define (not-false? x) x)
 
 
 ;;; Part 1
@@ -113,27 +144,13 @@
 ;; claims : List-of Claim?
 (define claims (map parse-claim inputs))
 
-;; The plan is to maintain two structures:
-;; 1. A stack of "to be processed" Claims
-;; 2. A stack of disjoint Claims with their current counts: the "done" stack
+(define disjoint-claims (add-stack claims '()))
 
-;; We repeatedly pick the top Claim off the to-be-processed stack, and then
-;; "add" it to the processed stack.
+(define multiple-claims (filter (λ (clm) (> (Claim-N clm) 1)) disjoint-claims))
 
-;; To add a Claim, we first start a new, empty, done stack, and move the current
-;; done stack to the running stack. We compare the new Claim to the top of the
-;; running stack; if there is no overlap, we move the top of the running stack
-;; to the done stack and continue. If we reach the end of running stack, we add
-;; the new Claim to the done stack and go back to the beginning.
+(println (apply + (map claim-area multiple-claims)))
 
-;; If there is an overlap:
-;;
-;; 1. Compute the disjoint partition of the two Claims.
-;; 2. Add the partition of the running stack Claim (including the overlap) to
-;; the done stack.
-;; 3. Put the partition of the new Claim back on the to-be-processed stack and
-;; start again.
+;;; Part 2
+;;; --------------------------------------------------------------------------------
 
-
-
-
+(println (filter (λ (clm) (> (Claim-id clm) 0)) disjoint-claims))
