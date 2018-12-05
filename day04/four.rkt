@@ -19,6 +19,13 @@
         (+ new-month 1)
         (+ new-day 1)))
 
+(define (date<? dt1 dt2)
+  (or (< (Date-year dt1) (Date-year dt2))
+      (and (= (Date-year dt1) (Date-year dt2))
+           (or (< (Date-month dt1) (Date-month dt2))
+               (and (= (Date-month dt1) (Date-month dt2))
+                    (< (Date-day dt1) (Date-day dt2)))))))
+
 ;; An Oclock is an hour and a minute
 (struct Oclock (hour minute) #:transparent)
 
@@ -50,9 +57,9 @@
   (let ([dt (Date (string->number yr) (string->number mn) (string->number dy))]
         [tm (Oclock (string->number hr) (string->number mi))])
     (cond
-      [(string=? descr "wakes up") (Event/awaken dt tm)]
+      [(string=? descr "wakes up")     (Event/awaken dt tm)]
       [(string=? descr "falls asleep") (Event/asleep dt tm)]
-      [else (Event/duty dt tm (string->number guard))])))
+      [else                            (Event/duty dt tm (string->number guard))])))
 
 (define events (map parse-event inputs))
 
@@ -79,6 +86,10 @@
 
 ;; Step 2. For each day, put the events in order and compute the times at which
 ;; guards were asleep or awake
+
+
+
+
 
 ;;; Part 2
 ;;; --------------------------------------------------------------------------------
