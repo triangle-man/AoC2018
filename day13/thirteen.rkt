@@ -13,9 +13,6 @@
     (evolve-step *map* cs)))
 
 
-
-
-
 ;; A segment is
 ;; - a symbol describing the two sides of the square that it connects:
 ;;   'ns (|), 'ew (-), 'se (/), 'nw (/), 'sw (\), 'ne (\)
